@@ -61,7 +61,7 @@ export function useComputerGame({
   // Function for player to make a move
   const placeStone = useCallback((row: number, col: number): boolean => {
     // Ensure it's the player's turn and game is not over
-    if (gameState.currentPlayer !== playerColor || gameState.gameOver) {
+    if (gameState.currentPlayer !== playerColor || gameState.gameOver || thinking) {
       return false;
     }
 
@@ -73,19 +73,19 @@ export function useComputerGame({
     }
     
     return success;
-  }, [game, gameState.currentPlayer, gameState.gameOver, playerColor, updateGameState]);
+  }, [game, gameState.currentPlayer, gameState.gameOver, playerColor, updateGameState, thinking]);
 
   // Function for player to pass
   const pass = useCallback(() => {
     // Ensure it's the player's turn and game is not over
-    if (gameState.currentPlayer !== playerColor || gameState.gameOver) {
+    if (gameState.currentPlayer !== playerColor || gameState.gameOver || thinking) {
       return false;
     }
 
     game.pass();
     updateGameState('pass');
     return true;
-  }, [game, gameState.currentPlayer, gameState.gameOver, playerColor, updateGameState]);
+  }, [game, gameState.currentPlayer, gameState.gameOver, playerColor, updateGameState, thinking]);
 
   // Function to resign the game
   const resign = useCallback(() => {
@@ -122,7 +122,7 @@ export function useComputerGame({
     const computerColor = playerColor === 'black' ? 'white' : 'black';
     
     // Make the computer move after a short delay
-    if (gameState.currentPlayer === computerColor && !gameState.gameOver) {
+    if (gameState.currentPlayer === computerColor && !gameState.gameOver && !thinking) {
       setThinking(true);
       
       const timer = setTimeout(() => {
@@ -153,7 +153,7 @@ export function useComputerGame({
       
       return () => clearTimeout(timer);
     }
-  }, [gameState.currentPlayer, gameState.gameOver, playerColor, ai, game, updateGameState]);
+  }, [gameState.currentPlayer, gameState.gameOver, playerColor, ai, game, updateGameState, thinking]);
 
   return {
     gameState,
@@ -163,4 +163,4 @@ export function useComputerGame({
     resign,
     restartGame,
   };
-} 
+}

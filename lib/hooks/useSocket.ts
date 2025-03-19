@@ -152,4 +152,4 @@ export function useSocket({ socketUrl = 'http://localhost:3001' }: UseSocketProp
     passTurn,
     resignGame,
   };
-} 
+}
