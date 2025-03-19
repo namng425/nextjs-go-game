@@ -1,143 +1,153 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
-
-// Types for stones and intersections
-type StoneColor = "black" | "white" | null;
-type BoardSize = 9 | 13 | 19;
-type BoardState = StoneColor[][];
-type Coordinates = { x: number; y: number };
+import { useCallback, useEffect, useRef } from 'react';
+import { StoneColor, BoardState } from '@/types/go-game-types';
 
 interface GoBoardProps {
-  size: BoardSize;
+  size: number;
+  currentPlayer: 'black' | 'white';
+  boardState?: BoardState;
   onPlaceStone?: (row: number, col: number) => void;
   readOnly?: boolean;
-  currentPlayer?: "black" | "white";
-  boardState?: BoardState;
-  className?: string;
 }
 
 export default function GoBoard({
-  size = 19,
+  size,
+  currentPlayer,
+  boardState = Array(size).fill(null).map(() => Array(size).fill(null)),
   onPlaceStone,
   readOnly = false,
-  currentPlayer = "black",
-  boardState: externalBoardState,
-  className,
 }: GoBoardProps) {
-  // Initialize board state if not provided
-  const boardState = externalBoardState || Array(size).fill(null).map(() => Array(size).fill(null));
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cellSize = 30;
+  const padding = 20;
+  const stoneRadius = cellSize * 0.45;
 
-  // Handle stone placement
-  const handleIntersectionClick = (row: number, col: number) => {
-    if (readOnly || boardState[row][col] !== null) return;
-    
-    // Notify parent component
-    if (onPlaceStone) {
-      onPlaceStone(row, col);
+  const drawBoard = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw background
+    ctx.fillStyle = '#DCB35C';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw grid lines
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < size; i++) {
+      // Horizontal lines
+      ctx.beginPath();
+      ctx.moveTo(padding, padding + i * cellSize);
+      ctx.lineTo(padding + (size - 1) * cellSize, padding + i * cellSize);
+      ctx.stroke();
+
+      // Vertical lines
+      ctx.beginPath();
+      ctx.moveTo(padding + i * cellSize, padding);
+      ctx.lineTo(padding + i * cellSize, padding + (size - 1) * cellSize);
+      ctx.stroke();
     }
-  };
 
-  // Render board grid
+    // Draw star points
+    const starPoints = [
+      { x: 3, y: 3 },
+      { x: size - 4, y: 3 },
+      { x: 3, y: size - 4 },
+      { x: size - 4, y: size - 4 },
+    ];
+
+    if (size >= 13) {
+      const mid = Math.floor(size / 2);
+      starPoints.push(
+        { x: mid, y: mid },
+        { x: 3, y: mid },
+        { x: size - 4, y: mid },
+        { x: mid, y: 3 },
+        { x: mid, y: size - 4 }
+      );
+    }
+
+    ctx.fillStyle = '#000000';
+    for (const point of starPoints) {
+      ctx.beginPath();
+      ctx.arc(
+        padding + point.x * cellSize,
+        padding + point.y * cellSize,
+        3,
+        0,
+        2 * Math.PI
+      );
+      ctx.fill();
+    }
+
+    // Draw stones
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const stone = boardState[row][col];
+        if (stone) {
+          ctx.fillStyle = stone === 'black' ? '#000000' : '#FFFFFF';
+          ctx.strokeStyle = stone === 'black' ? '#000000' : '#000000';
+          ctx.lineWidth = 1;
+
+          ctx.beginPath();
+          ctx.arc(
+            padding + col * cellSize,
+            padding + row * cellSize,
+            stoneRadius,
+            0,
+            2 * Math.PI
+          );
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+    }
+  }, [size, boardState, cellSize, padding, stoneRadius]);
+
+  useEffect(() => {
+    drawBoard();
+  }, [drawBoard]);
+
+  const handleCanvasClick = useCallback(
+    (event: React.MouseEvent<HTMLCanvasElement>) => {
+      if (readOnly || !onPlaceStone) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      // Calculate grid position
+      const col = Math.round((x - padding) / cellSize);
+      const row = Math.round((y - padding) / cellSize);
+
+      // Check if click is within valid bounds
+      if (
+        col >= 0 && col < size &&
+        row >= 0 && row < size
+      ) {
+        onPlaceStone(row, col);
+      }
+    },
+    [size, cellSize, padding, onPlaceStone, readOnly]
+  );
+
   return (
-    <div 
-      className={cn(
-        "relative bg-amber-100 border border-gray-800 shadow-md rounded",
-        className
-      )}
-      style={{
-        width: `${size * 30}px`,
-        height: `${size * 30}px`,
-      }}
-    >
-      {/* Grid lines */}
-      <div className="absolute inset-0 grid" style={{ 
-        gridTemplateColumns: `repeat(${size - 1}, 1fr)`,
-        gridTemplateRows: `repeat(${size - 1}, 1fr)`,
-        margin: "15px",
-        width: `calc(100% - 30px)`,
-        height: `calc(100% - 30px)`,
-      }}>
-        {Array(size - 1).fill(null).map((_, rowIdx) => (
-          Array(size - 1).fill(null).map((_, colIdx) => (
-            <div 
-              key={`grid-${rowIdx}-${colIdx}`} 
-              className="relative border border-gray-800"
-            />
-          ))
-        ))}
-      </div>
-
-      {/* Star points (hoshi) */}
-      {getStarPoints(size).map(({x, y}) => (
-        <div
-          key={`star-${x}-${y}`}
-          className="absolute w-2 h-2 bg-gray-800 rounded-full transform -translate-x-1/2 -translate-y-1/2"
-          style={{
-            left: `${(x / (size - 1)) * (100 - (30 / (size * 30) * 100)) + (15 / (size * 30) * 100)}%`,
-            top: `${(y / (size - 1)) * (100 - (30 / (size * 30) * 100)) + (15 / (size * 30) * 100)}%`,
-          }}
-        />
-      ))}
-
-      {/* Intersections */}
-      <div className="absolute inset-0 grid" style={{ 
-        gridTemplateColumns: `repeat(${size}, 1fr)`,
-        gridTemplateRows: `repeat(${size}, 1fr)`,
-      }}>
-        {boardState.map((row, y) => (
-          row.map((intersection, x) => (
-            <div 
-              key={`intersection-${x}-${y}`} 
-              className="flex items-center justify-center cursor-pointer"
-              onClick={() => handleIntersectionClick(y, x)}
-            >
-              {intersection && (
-                <div 
-                  className={cn(
-                    "w-5/6 h-5/6 rounded-full shadow-md transform transition-transform",
-                    intersection === "black" ? "bg-gray-900" : "bg-white border border-gray-300"
-                  )}
-                />
-              )}
-            </div>
-          ))
-        ))}
-      </div>
-    </div>
+    <canvas
+      ref={canvasRef}
+      width={size * cellSize + 2 * padding}
+      height={size * cellSize + 2 * padding}
+      onClick={handleCanvasClick}
+      className={`cursor-${readOnly ? 'default' : 'pointer'}`}
+    />
   );
 }
-
-// Helper function to get star points based on board size
-function getStarPoints(size: BoardSize): Coordinates[] {
-  if (size === 9) {
-    return [
-      { x: 2, y: 2 },
-      { x: 2, y: 6 },
-      { x: 4, y: 4 },
-      { x: 6, y: 2 },
-      { x: 6, y: 6 },
-    ];
-  } else if (size === 13) {
-    return [
-      { x: 3, y: 3 },
-      { x: 3, y: 9 },
-      { x: 6, y: 6 },
-      { x: 9, y: 3 },
-      { x: 9, y: 9 },
-    ];
-  } else { // size === 19
-    return [
-      { x: 3, y: 3 },
-      { x: 3, y: 9 },
-      { x: 3, y: 15 },
-      { x: 9, y: 3 },
-      { x: 9, y: 9 },
-      { x: 9, y: 15 },
-      { x: 15, y: 3 },
-      { x: 15, y: 9 },
-      { x: 15, y: 15 },
-    ];
-  }
-} 
