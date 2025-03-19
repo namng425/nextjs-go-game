@@ -26,9 +26,9 @@ export function useComputerGame({
   difficulty = 'medium',
   playerColor = 'black',
 }: UseComputerGameProps = {}) {
-  // Initialize game state
-  const [game] = useState(() => new GoGame(initialBoardSize));
-  const [ai] = useState(() => new ComputerAI(game, difficulty, playerColor === 'black' ? 'white' : 'black'));
+  // Initialize game and AI instances using refs to maintain them across renders
+  const [game, setGame] = useState(() => new GoGame(initialBoardSize));
+  const [ai, setAI] = useState(() => new ComputerAI(game, difficulty, playerColor === 'black' ? 'white' : 'black'));
   const [gameState, setGameState] = useState<GameState>({
     boardState: game.getBoard(),
     currentPlayer: game.getCurrentPlayer(),
@@ -105,9 +105,9 @@ export function useComputerGame({
       newPlayerColor === 'black' ? 'white' : 'black'
     );
     
-    // Reset the game and AI
-    Object.assign(game, newGame);
-    Object.assign(ai, newAI);
+    // Update game and AI instances
+    setGame(newGame);
+    setAI(newAI);
     
     setGameState({
       boardState: newGame.getBoard(),
@@ -115,7 +115,7 @@ export function useComputerGame({
       capturedStones: newGame.getCapturedStones(),
       gameOver: false,
     });
-  }, [game, ai, initialBoardSize, difficulty, playerColor]);
+  }, [initialBoardSize, difficulty, playerColor]);
 
   // AI's turn handler
   useEffect(() => {
@@ -130,12 +130,22 @@ export function useComputerGame({
           const aiMove = ai.makeMove();
           
           if (aiMove === 'pass') {
+            game.pass();
             updateGameState('pass');
           } else {
-            updateGameState(aiMove);
+            const success = game.placeStone(aiMove.row, aiMove.col);
+            if (success) {
+              updateGameState(aiMove);
+            } else {
+              console.error('AI made an invalid move');
+              game.pass();
+              updateGameState('pass');
+            }
           }
         } catch (error) {
           console.error('AI error:', error);
+          game.pass();
+          updateGameState('pass');
         } finally {
           setThinking(false);
         }
@@ -143,7 +153,7 @@ export function useComputerGame({
       
       return () => clearTimeout(timer);
     }
-  }, [gameState.currentPlayer, gameState.gameOver, playerColor, ai, updateGameState]);
+  }, [gameState.currentPlayer, gameState.gameOver, playerColor, ai, game, updateGameState]);
 
   return {
     gameState,

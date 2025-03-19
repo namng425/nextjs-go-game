@@ -11,7 +11,7 @@ type Coordinates = { x: number; y: number };
 
 interface GoBoardProps {
   size: BoardSize;
-  onPlaceStone?: (x: number, y: number, color: "black" | "white") => void;
+  onPlaceStone?: (row: number, col: number) => void;
   readOnly?: boolean;
   currentPlayer?: "black" | "white";
   boardState?: BoardState;
@@ -27,31 +27,15 @@ export default function GoBoard({
   className,
 }: GoBoardProps) {
   // Initialize board state if not provided
-  const [boardState, setBoardState] = useState<BoardState>(
-    externalBoardState || Array(size).fill(null).map(() => Array(size).fill(null))
-  );
-
-  // Update board state when external state changes
-  useEffect(() => {
-    if (externalBoardState) {
-      setBoardState(externalBoardState);
-    }
-  }, [externalBoardState]);
+  const boardState = externalBoardState || Array(size).fill(null).map(() => Array(size).fill(null));
 
   // Handle stone placement
-  const handleIntersectionClick = (x: number, y: number) => {
-    if (readOnly || boardState[y][x] !== null) return;
-
-    // Create a new board state with the placed stone
-    const newBoardState = boardState.map((row) => [...row]);
-    newBoardState[y][x] = currentPlayer;
-    
-    // Update board state
-    setBoardState(newBoardState);
+  const handleIntersectionClick = (row: number, col: number) => {
+    if (readOnly || boardState[row][col] !== null) return;
     
     // Notify parent component
     if (onPlaceStone) {
-      onPlaceStone(x, y, currentPlayer);
+      onPlaceStone(row, col);
     }
   };
 
@@ -106,8 +90,8 @@ export default function GoBoard({
           row.map((intersection, x) => (
             <div 
               key={`intersection-${x}-${y}`} 
-              className="flex items-center justify-center"
-              onClick={() => handleIntersectionClick(x, y)}
+              className="flex items-center justify-center cursor-pointer"
+              onClick={() => handleIntersectionClick(y, x)}
             >
               {intersection && (
                 <div 
